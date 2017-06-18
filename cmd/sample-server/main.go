@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
 	"os"
+	auth "github.com/nickyborisov/basic-auth-sample/basic-auth-middleware"
 )
 
 type User struct {
@@ -18,13 +19,30 @@ func main() {
 
 	log.Debug("starting the server");
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	md := auth.BasicAuthMiddleware{
+		AuthenticateCallback:func(u, p string) error {
+			if u != "nicky" {
+				return auth.NewInvalidUserError(u)
+			}
 
-		log.Debug("new reuest received");
+			if p != "borisov" {
+				return auth.NewInvalidPasswordError(p)
+			}
 
-		u := User{Id: "US123", Name: "Nicky"}
-		json.NewEncoder(w).Encode(u)
-	})
+			return nil
+		},
+		Realm:"Basic Auth Sample",
+
+	};
+
+	http.HandleFunc("/", auth.CreateBasicAuthMiddlewareFunc(md,
+		func(w http.ResponseWriter, r *http.Request) {
+
+			log.Debug("new reuest received");
+
+			u := User{Id: "US123", Name: "Nicky"}
+			json.NewEncoder(w).Encode(u)
+		}))
 	log.Fatal(http.ListenAndServe(":8033", nil))
 }
 
